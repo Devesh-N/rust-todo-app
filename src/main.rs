@@ -8,18 +8,23 @@ use sqlx::{Pool, Postgres, Row};  // Add this line to import Pool
 mod db_connection;
 use db_connection::create_pool;
 use db_connection::fetch_data;
+use db_connection::fetch_task_names;
 
 struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
 #[rocket::get("/")]
 async fn index(state: &State<DbConn>) -> Value {
-    // Attempt to fetch data from the database
+    // Fetch the number of tasks
     let item_num = match fetch_data(&state.0).await {
-        Ok(data) => data.to_string(), // Convert the data to a string if successful
-        Err(_) => "Error fetching data".to_string(), // Handle error case
+        Ok(count) => count.to_string(),
+        Err(_) => "Error fetching data".to_string(),
     };
 
-    let tasks = "nothing"; // This is a static string, as per your original code
+    // Fetch the task names
+    let tasks = match fetch_task_names(&state.0).await {
+        Ok(names) => names.join(", "), // Join the task names with a comma
+        Err(_) => "Error fetching tasks".to_string(),
+    };
 
     // Construct the JSON response
     json!({
