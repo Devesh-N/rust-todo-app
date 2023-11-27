@@ -1,17 +1,9 @@
 #[macro_use]
 extern crate rocket;
-// use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::{Value, json};
 use rocket::State;
-use sqlx::{Pool, Postgres, Row};  // Add this line to import Pool
-// use sqlx::types::Json;
+use sqlx::{Pool, Postgres, Row};
 use rocket::serde::{json::Json, Deserialize, Serialize};
-
-#[derive(Deserialize, Serialize)]
-pub struct Task {
-    name: String,
-    pending: bool,
-}
 mod db_connection;
 use db_connection::create_pool;
 use db_connection::fetch_data;
@@ -19,7 +11,11 @@ use db_connection::fetch_task_names;
 use db_connection::fetch_completed_tasks_count;
 use db_connection::insert_task;
 use db_connection::delete_task_by_name;
-
+#[derive(Deserialize, Serialize)]
+pub struct Task {
+    name: String,
+    pending: bool,
+}
 struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
 #[rocket::get("/")]

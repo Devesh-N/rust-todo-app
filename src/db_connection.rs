@@ -60,6 +60,3 @@ pub async fn fetch_completed_tasks_count(pool: &Pool<Postgres>) -> Result<i64, s
 
     Ok(count)
 }
-
-
-
