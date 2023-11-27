@@ -15,6 +15,7 @@ struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
 #[rocket::get("/")]
 async fn index(state: &State<DbConn>) -> Value {
+    log::info!("Received request to '/' endpoint");
     // Fetch the number of pending tasks
     let pending_tasks_count = match fetch_data(&state.0).await {
         Ok(count) => count.to_string(),
@@ -40,6 +41,8 @@ async fn index(state: &State<DbConn>) -> Value {
     };
 
     // Construct the JSON response
+    log::info!("Processed request to '/' endpoint");
+    log::info!("Proceeding to send json");
     json!({
         "Number of Pending Tasks": pending_tasks_count,
         "Number of Completed Tasks": completed_tasks_count,
@@ -49,9 +52,12 @@ async fn index(state: &State<DbConn>) -> Value {
 
 #[rocket::launch]
 async fn rocket() -> _ {
+    env_logger::init();  // Initialize the logger
+
     let db_pool = create_pool().await.expect("database pool failed to initialize");
 
     rocket::build()
         .manage(DbConn(db_pool))
         .mount("/", rocket::routes![index])
 }
+
