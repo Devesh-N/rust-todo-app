@@ -22,6 +22,17 @@ pub async fn fetch_data(pool: &Pool<Postgres>) -> Result<i64, sqlx::Error> {
 
     Ok(count)
 }
+
+pub async fn delete_task_by_name(pool: &Pool<Postgres>, task_name: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM tasks WHERE name = $1")
+        .bind(task_name)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+
+
 pub async fn insert_task(pool: &Pool<Postgres>, task: &Task) -> Result<(), sqlx::Error> {
     sqlx::query("INSERT INTO tasks (name, pending) VALUES ($1, $2)")
         .bind(&task.name)

@@ -18,6 +18,7 @@ use db_connection::fetch_data;
 use db_connection::fetch_task_names;
 use db_connection::fetch_completed_tasks_count;
 use db_connection::insert_task;
+use db_connection::delete_task_by_name;
 
 struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
@@ -70,7 +71,16 @@ async fn add_task(task: Json<Task>, state: &State<DbConn>) -> Value {
     }
 }
 
-
+#[rocket::delete("/task/<name>")]
+async fn delete_task(name: String, state: &State<DbConn>) -> Value {
+    match delete_task_by_name(&state.0, &name).await {
+        Ok(_) => json!({"status": "success"}),
+        Err(e) => {
+            log::error!("Failed to delete task: {}", e);
+            json!({"status": "error"})
+        }
+    }
+}
 
 
 
@@ -82,6 +92,6 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(DbConn(db_pool))
-        .mount("/", rocket::routes![index, add_task])
+        .mount("/", rocket::routes![index, add_task, delete_task])
 }
 
