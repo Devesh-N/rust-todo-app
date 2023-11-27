@@ -1,43 +1,93 @@
 #[macro_use]
 extern crate rocket;
 use rocket::serde::json::{Value, json};
-use std::error::Error;
-use rocket::futures::future::Select;
-use sqlx::Connection;
-use sqlx::Row;
-#[rocket::tokio::main]
-async fn main() -> Result<(), Box<dyn Error>>{
-    let url = "postgres://postgres:tJGDccmOS0nhAchXSVGS@learning-db.c859oi58mdy2.ap-south-1.rds.amazonaws.com/postgres";
-    let mut conn = sqlx::postgres::PgConnection::connect(url).await?;
-    let res = sqlx::query("SELECT * FROM tasks")
-        .fetch_one(&mut conn)
-        .await?;
-    let stringgot: String = res.get("sum");
-    println!("{}", stringgot);
-    Ok(())
+use rocket::State;
+use sqlx::{Pool, Postgres, Row};
+use rocket::serde::{json::Json, Deserialize, Serialize};
+mod db_connection;
+use db_connection::create_pool;
+use db_connection::fetch_data;
+use db_connection::fetch_task_names;
+use db_connection::fetch_completed_tasks_count;
+use db_connection::insert_task;
+use db_connection::delete_task_by_name;
+#[derive(Deserialize, Serialize)]
+pub struct Task {
+    name: String,
+    pending: bool,
 }
-
+struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
 #[rocket::get("/")]
-fn index() -> Value {
+async fn index(state: &State<DbConn>) -> Value {
+    log::info!("Received request to '/' endpoint");
+    // Fetch the number of pending tasks
+    let pending_tasks_count = match fetch_data(&state.0).await {
+        Ok(count) => count.to_string(),
+        Err(_) => "Error fetching data".to_string(),
+    };
 
+    // Fetch the number of completed tasks
+    let completed_tasks_count = match fetch_completed_tasks_count(&state.0).await {
+        Ok(count) => count.to_string(),
+        Err(_) => "Error fetching data".to_string(),
+    };
 
-    let item_num = 0;
-    let tasks = "nothing";
+    // Fetch the task names and pending status
+    let tasks = match fetch_task_names(&state.0).await {
+        Ok(task_list) => {
+            let mut tasks_map = serde_json::Map::new();
+            for (name, pending) in task_list {
+                tasks_map.insert(name, serde_json::Value::Bool(pending));
+            }
+            serde_json::Value::Object(tasks_map)
+        },
+        Err(_) => serde_json::Value::String("Error fetching tasks".to_string()),
+    };
 
-
-    let json_response = json!({
-        "Number of tasks": item_num,
-        "Current Tasks": tasks
-    });
-    json_response
+    // Construct the JSON response
+    log::info!("Processed request to '/' endpoint");
+    log::info!("Proceeding to send json");
+    json!({
+        "Number of Pending Tasks": pending_tasks_count,
+        "Number of Completed Tasks": completed_tasks_count,
+        "Tasks": tasks
+    })
 }
+
+
+#[rocket::post("/", format = "json", data = "<task>")]
+async fn add_task(task: Json<Task>, state: &State<DbConn>) -> Value {
+    match insert_task(&state.0, &task.into_inner()).await {
+        Ok(_) => json!({"status": "success"}),
+        Err(e) => {
+            log::error!("Failed to insert task: {}", e);
+            json!({"status": "error"})
+        },
+    }
+}
+
+#[rocket::delete("/task/<name>")]
+async fn delete_task(name: String, state: &State<DbConn>) -> Value {
+    match delete_task_by_name(&state.0, &name).await {
+        Ok(_) => json!({"status": "success"}),
+        Err(e) => {
+            log::error!("Failed to delete task: {}", e);
+            json!({"status": "error"})
+        }
+    }
+}
+
+
 
 #[rocket::launch]
-fn rocket() -> _ {
+async fn rocket() -> _ {
+    env_logger::init();  // Initialize the logger
+
+    let db_pool = create_pool().await.expect("database pool failed to initialize");
+
     rocket::build()
-        .mount("/", rocket::routes![index])
+        .manage(DbConn(db_pool))
+        .mount("/", rocket::routes![index, add_task, delete_task])
 }
-// fn test() {
-//     db();
-// }
+
