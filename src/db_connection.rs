@@ -2,6 +2,9 @@ use std::error::Error;
 use sqlx::Connection;
 use sqlx::Row;
 // db_connection.rs
+use crate::Task;
+use rocket::serde::{json::Json, Deserialize, Serialize};
+
 use sqlx::{Pool, Postgres};
 
 
@@ -19,7 +22,14 @@ pub async fn fetch_data(pool: &Pool<Postgres>) -> Result<i64, sqlx::Error> {
 
     Ok(count)
 }
-
+pub async fn insert_task(pool: &Pool<Postgres>, task: &Task) -> Result<(), sqlx::Error> {
+    sqlx::query("INSERT INTO tasks (name, pending) VALUES ($1, $2)")
+        .bind(&task.name)
+        .bind(task.pending)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
 pub async fn fetch_task_names(pool: &Pool<Postgres>) -> Result<Vec<(String, bool)>, sqlx::Error> {
     log::info!("Fetching task names and statuses");
     let tasks = sqlx::query_as::<_, (String, bool)>("SELECT name, pending FROM tasks")

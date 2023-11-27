@@ -1,15 +1,23 @@
 #[macro_use]
 extern crate rocket;
-
+// use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::{Value, json};
 use rocket::State;
 use sqlx::{Pool, Postgres, Row};  // Add this line to import Pool
+// use sqlx::types::Json;
+use rocket::serde::{json::Json, Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize)]
+pub struct Task {
+    name: String,
+    pending: bool,
+}
 mod db_connection;
 use db_connection::create_pool;
 use db_connection::fetch_data;
 use db_connection::fetch_task_names;
 use db_connection::fetch_completed_tasks_count;
+use db_connection::insert_task;
 
 struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
 
@@ -50,6 +58,22 @@ async fn index(state: &State<DbConn>) -> Value {
     })
 }
 
+
+#[rocket::post("/", format = "json", data = "<task>")]
+async fn add_task(task: Json<Task>, state: &State<DbConn>) -> Value {
+    match insert_task(&state.0, &task.into_inner()).await {
+        Ok(_) => json!({"status": "success"}),
+        Err(e) => {
+            log::error!("Failed to insert task: {}", e);
+            json!({"status": "error"})
+        },
+    }
+}
+
+
+
+
+
 #[rocket::launch]
 async fn rocket() -> _ {
     env_logger::init();  // Initialize the logger
@@ -58,6 +82,6 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(DbConn(db_pool))
-        .mount("/", rocket::routes![index])
+        .mount("/", rocket::routes![index, add_task])
 }
 
