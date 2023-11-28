@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 use rocket::serde::json::{Value, json};
+use rocket_cors::{AllowedOrigins, Cors, CorsOptions};
 use rocket::State;
 use sqlx::{Pool, Postgres, Row};
 use rocket::serde::{json::Json, Deserialize, Serialize};
@@ -96,7 +97,11 @@ async fn delete_task(name: String, state: &State<DbConn>) -> Value {
 #[rocket::launch]
 async fn rocket() -> _ {
     env_logger::init();  // Initialize the logger
-
+    let cors = CorsOptions {
+        allowed_origins: AllowedOrigins::All, // You might want to be more restrictive
+        // ... other CORS options ...
+        ..Default::default()
+    };
     let db_pool = create_pool().await.expect("database pool failed to initialize");
 
     rocket::build()
