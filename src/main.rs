@@ -11,6 +11,7 @@ use db_connection::fetch_task_names;
 use db_connection::fetch_completed_tasks_count;
 use db_connection::insert_task;
 use db_connection::delete_task_by_name;
+use db_connection::update_task_by_name;
 #[derive(Deserialize, Serialize)]
 pub struct Task {
     name: String,
@@ -67,6 +68,16 @@ async fn add_task(task: Json<Task>, state: &State<DbConn>) -> Value {
     }
 }
 
+#[rocket::put("/task/<name>", format = "json", data = "<task>")]
+async fn update_task(name: String, task: Json<Task>, state: &State<DbConn>) -> Value {
+    match update_task_by_name(&state.0, &name, &task.into_inner()).await {
+        Ok(_) => json!({"status": "success"}),
+        Err(e) => {
+            log::error!("Failed to update task: {}", e);
+            json!({"status": "error"})
+        },
+    }
+}
 
 
 #[rocket::delete("/task/<name>")]
@@ -90,6 +101,6 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(DbConn(db_pool))
-        .mount("/", rocket::routes![index, add_task, delete_task])
+        .mount("/", rocket::routes![index, add_task, delete_task, update_task])
 }
 
