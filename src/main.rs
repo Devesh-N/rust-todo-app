@@ -16,7 +16,7 @@ pub struct Task {
     name: String,
     pending: bool,
 }
-struct DbConn(Pool<Postgres>);  // Now Pool is recognized here
+struct DbConn(Pool<Postgres>);
 
 #[rocket::get("/")]
 async fn index(state: &State<DbConn>) -> Value {
@@ -66,6 +66,8 @@ async fn add_task(task: Json<Task>, state: &State<DbConn>) -> Value {
         },
     }
 }
+
+
 
 #[rocket::delete("/task/<name>")]
 async fn delete_task(name: String, state: &State<DbConn>) -> Value {
