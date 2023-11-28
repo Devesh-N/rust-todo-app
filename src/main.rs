@@ -5,6 +5,10 @@ use rocket_cors::{AllowedOrigins, Cors, CorsOptions};
 use rocket::State;
 use sqlx::{Pool, Postgres, Row};
 use rocket::serde::{json::Json, Deserialize, Serialize};
+use rocket::{Request};
+use rocket::request::{self, FromRequest, Outcome};
+use rocket::http::Status;
+
 mod db_connection;
 use db_connection::create_pool;
 use db_connection::fetch_data;
@@ -13,6 +17,7 @@ use db_connection::fetch_completed_tasks_count;
 use db_connection::insert_task;
 use db_connection::delete_task_by_name;
 use db_connection::update_task_by_name;
+
 #[derive(Deserialize, Serialize)]
 pub struct Task {
     name: String,
@@ -20,8 +25,36 @@ pub struct Task {
 }
 struct DbConn(Pool<Postgres>);
 
+struct ApiKey<'r>(&'r str);
+
+#[derive(Debug)]
+enum ApiKeyError {
+    Missing,
+    Invalid,
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for ApiKey<'r> {
+    type Error = ApiKeyError;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        /// Returns true if `key` is a valid API key string.
+        fn is_valid(key: &str) -> bool {
+            key == "7ba558f4-b214-45cf-9e8e-3e086d5c25a9"
+        }
+
+        match req.headers().get_one("x-api-key") {
+            None => Outcome::Error((Status::BadRequest, ApiKeyError::Missing)),
+            Some(key) if is_valid(key) => Outcome::Success(ApiKey(key)),
+            Some(_) => Outcome::Error((Status::BadRequest, ApiKeyError::Invalid)),
+        }
+    }
+}
+
+
+
 #[rocket::get("/")]
-async fn index(state: &State<DbConn>) -> Value {
+async fn index(_api_key: ApiKey<'_>, state: &State<DbConn>) -> Value {
     log::info!("Received request to '/' endpoint");
     // Fetch the number of pending tasks
     let pending_tasks_count = match fetch_data(&state.0).await {
