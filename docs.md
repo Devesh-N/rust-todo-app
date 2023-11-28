@@ -40,3 +40,55 @@ Returns a summary of tasks, including counts of pending and completed tasks and 
     ...
   }
 }
+```
+### POST `/`
+Returns whether the task given was inserted into database successfully.
+
+**Query:**
+```json
+{"name": "Another Task", "pending": true}
+```
+```text
+Content-Type application/json
+```
+
+
+**Response:**
+
+```json
+{
+	"status": "success"
+}
+```
+
+### DELETE `/task/`
+Returns whether the task given was deleted from database successfully.
+
+**Query**
+```json
+localhost:8000/task/Another Task
+```
+
+**Response:**
+```json
+{
+	"status": "success"
+}
+```
+
+### PUT `/task/`
+Returns whether the task givem was updated successfully.
+
+**Query**
+```json
+{"name": "Renamed Task", "pending": false}
+```
+
+**Response**
+
+```json
+{
+	"status": "success"
+}
+```
+
