@@ -24,7 +24,6 @@ pub struct Task {
     pending: bool,
 }
 struct DbConn(Pool<Postgres>);
-
 struct ApiKey<'r>(&'r str);
 
 #[derive(Debug)]
