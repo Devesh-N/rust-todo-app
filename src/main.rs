@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate rocket;
+use reqwest;
 use rocket::serde::json::{Value, json};
 use rocket_cors::{AllowedOrigins, Cors, CorsOptions};
 use rocket::State;
@@ -32,19 +33,41 @@ enum ApiKeyError {
     Invalid,
 }
 
+async fn validate_api_key(api_key: &str) -> Result<bool, reqwest::Error> {
+    if api_key.is_empty() {
+        return Ok(false);
+    }
+
+    let client = reqwest::Client::new();
+    let res = client.post("http://localhost:9090/validate-api-key")
+        .json(&json!({"APIKey": api_key}))
+        .send()
+        .await?;
+
+    if res.status() != reqwest::StatusCode::OK {
+        return Ok(false);
+    }
+
+    let json_response: Value = res.json().await?;
+    Ok(json_response["isValid"].as_bool().unwrap_or(false))
+}
+
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for ApiKey<'r> {
     type Error = ApiKeyError;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         /// Returns true if `key` is a valid API key string.
-        fn is_valid(key: &str) -> bool {
-            key == "7ba558f4-b214-45cf-9e8e-3e086d5c25a9"
+        async fn is_valid(key: &str) -> bool {
+            match validate_api_key(key).await {
+                Ok(valid) => valid,
+                Err(_) => false,
+            }
         }
 
         match req.headers().get_one("x-api-key") {
             None => Outcome::Error((Status::BadRequest, ApiKeyError::Missing)),
-            Some(key) if is_valid(key) => Outcome::Success(ApiKey(key)),
+            Some(key) if is_valid(key).await => Outcome::Success(ApiKey(key)),
             Some(_) => Outcome::Error((Status::BadRequest, ApiKeyError::Invalid)),
         }
     }
